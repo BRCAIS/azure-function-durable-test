@@ -1,4 +1,4 @@
-param($param)
+param($Param)
 
 $ErrorActionPreference = 'Stop'
 $warningPreference = 'Continue'
