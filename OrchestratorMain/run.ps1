@@ -4,16 +4,16 @@ $ErrorActionPreference = 'Stop'
 $warningPreference = 'Continue'
 $InformationPreference = 'Continue'
 
+Write-Log "Running main orchestrator" -OrchestrationContext $Context
+
+$retryPolicyParameters = @{
+    BackoffCoefficient  = 2.0
+    FirstRetryInterval  = (New-TimeSpan -Seconds 2)
+    MaxNumberOfAttempts = 5
+}
+$retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
+
 try {
-    Write-Log "Running main orchestrator" -OrchestrationContext $Context
-
-    $retryPolicyParameters = @{
-        BackoffCoefficient  = 2.0
-        FirstRetryInterval  = (New-TimeSpan -Seconds 2)
-        MaxNumberOfAttempts = 5
-    }
-    $retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
-
     $userGroupsInput = @{
         UserGroupCount = 1
     }
@@ -23,7 +23,12 @@ try {
         RetryOptions = $retryPolicy
     }
     $userGroups = Invoke-DurableActivity @userGroupsParameters
+} catch {
+    Write-Log "Failed to invoke activity 'ActivityGetUserGroups' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+    throw $PSItem
+}
 
+try {
     $userGroupTasks = foreach ($userGroupName in $userGroups) {
         $userGroupInput = @{
             UserGroupName = $userGroupName
@@ -43,6 +48,6 @@ try {
     Write-Log "user group sub orchestrator results: $($userGroupResults | ConvertTo-Json -Depth 100)" -OrchestrationContext $Context
     return $userGroupResults
 } catch {
-    Write-Log "Caught error - $($PSItem.Exception.Message)" -OrchestrationContext $Context
+    Write-Log "Failed to invoke sub orchestrator 'SubOrchestratorUserGroup' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
     throw $PSItem
 }

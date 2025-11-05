@@ -4,16 +4,16 @@ $ErrorActionPreference = 'Stop'
 $warningPreference = 'Continue'
 $InformationPreference = 'Continue'
 
+Write-Log "Running sub orchestrator for user group '$($Context.Input.UserGroupName)'" -OrchestrationContext $Context
+
+$retryPolicyParameters = @{
+    BackoffCoefficient  = 2.0
+    FirstRetryInterval  = (New-TimeSpan -Seconds 2)
+    MaxNumberOfAttempts = 5
+}
+$retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
+
 try {
-    Write-Log "Running sub orchestrator for user group '$($Context.Input.UserGroupName)'" -OrchestrationContext $Context
-
-    $retryPolicyParameters = @{
-        BackoffCoefficient  = 2.0
-        FirstRetryInterval  = (New-TimeSpan -Seconds 2)
-        MaxNumberOfAttempts = 5
-    }
-    $retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
-
     $userGroupMembersInput = @{
         UserGroupMemberCount = 1000
         UserGroupName        = $Context.Input.UserGroupName
@@ -24,6 +24,12 @@ try {
         RetryOptions = $retryPolicy
     }
     $userGroupMembers = Invoke-DurableActivity @userGroupMembersParameters
+} catch {
+    Write-Log "Failed to invoke activity 'ActivityGetUserGroupMembers' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+    throw $PSItem
+}
+
+try {
     $userGroupMemberTasks = foreach ($userGroupMemberName in $userGroupMembers) {
         $userGroupMemberInput = @{
             UserGroupMemberName = $userGroupMemberName
@@ -44,6 +50,6 @@ try {
     Write-Log "user group member sub orchestrator results: $($userGroupMemberResults | ConvertTo-Json -Depth 100)" -OrchestrationContext $Context
     return $userGroupMemberResults
 } catch {
-    Write-Log "Caught error during user group $($Context.Input.UserGroupName) - $($PSItem.Exception.Message)" -OrchestrationContext $Context
+    Write-Log "Failed to invoke sub orchestrator 'SubOrchestratorUserGroupMember' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
     throw $PSItem
 }

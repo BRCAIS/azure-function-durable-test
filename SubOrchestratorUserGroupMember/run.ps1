@@ -4,24 +4,27 @@ $ErrorActionPreference = 'Stop'
 $warningPreference = 'Continue'
 $InformationPreference = 'Continue'
 
+Write-Log "Running sub orchestrator for user group member '$($Context.Input.UserGroupMemberName)'" -OrchestrationContext $Context
+
+$retryPolicyParameters = @{
+    BackoffCoefficient  = 2.0
+    FirstRetryInterval  = (New-TimeSpan -Seconds 2)
+    MaxNumberOfAttempts = 5
+}
+$retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
+
 try {
-    Write-Log "Running sub orchestrator for user group member '$($Context.Input.UserGroupMemberName)'" -OrchestrationContext $Context
-
-    $retryPolicyParameters = @{
-        BackoffCoefficient  = 2.0
-        FirstRetryInterval  = (New-TimeSpan -Seconds 2)
-        MaxNumberOfAttempts = 5
-    }
-    $retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
-
     $EncounterRandomErrorParameters = @{
         FunctionName = "ActivityEncounterRandomError"
         RetryOptions = $retryPolicy
     }
     Invoke-DurableActivity @EncounterRandomErrorParameters
+} catch {
+    Write-Log "Failed to invoke activity 'ActivityEncounterRandomError' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+    throw $PSItem
+}
 
-    Write-Log "Message after error inside sub orchestrator" -OrchestrationContext $Context
-
+try {
     $processUserGroupMemberInput = @{
         UserGroupMemberName = $Context.Input.UserGroupMemberName
         UserGroupName       = $Context.Input.UserGroupName
@@ -39,6 +42,6 @@ try {
         UserGroupName       = $Context.Input.UserGroupName
     }
 } catch {
-    Write-Log "Caught error during user group member $($Context.Input.UserGroupMemberName) - $($PSItem.Exception.Message)" -OrchestrationContext $Context
+    Write-Log "Failed to invoke activity 'ActivityProcessUserGroupMember' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
     throw $PSItem
 }
