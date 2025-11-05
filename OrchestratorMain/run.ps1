@@ -40,8 +40,8 @@ try {
     Write-Log "Waiting for user group sub orchestrators" -OrchestrationContext $Context
     $userGroupResults = Wait-DurableTask -Task $userGroupTasks
 
-    # Write-Log "user group sub orchestrator results: $($userGroupResults | ConvertTo-Json -Depth 100)" -OrchestrationContext $Context
-    # return $userGroupResults
+    Write-Log "user group sub orchestrator results: $($userGroupResults | ConvertTo-Json -Depth 100)" -OrchestrationContext $Context
+    return $userGroupResults
 } catch {
     Write-Log "Caught error - $($PSItem.Exception.Message)" -OrchestrationContext $Context
     throw $PSItem

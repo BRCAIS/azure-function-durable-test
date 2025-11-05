@@ -33,11 +33,11 @@ try {
     }
     Invoke-DurableActivity @processUserGroupMemberParameters
 
-    # return @{
-    #     Status              = "Processed"
-    #     UserGroupMemberName = $Context.Input.UserGroupMemberName
-    #     UserGroupName       = $Context.Input.UserGroupName
-    # }
+    return @{
+        Status              = "Processed"
+        UserGroupMemberName = $Context.Input.UserGroupMemberName
+        UserGroupName       = $Context.Input.UserGroupName
+    }
 } catch {
     Write-Log "Caught error during user group member $($Context.Input.UserGroupMemberName) - $($PSItem.Exception.Message)" -OrchestrationContext $Context
     throw $PSItem
