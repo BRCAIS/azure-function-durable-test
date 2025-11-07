@@ -13,24 +13,18 @@ $retryPolicyParameters = @{
 }
 $retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
 
+# Optionally throw random error
 $EncounterError = $false
 if ($EncounterError)
 {
-    try
-    {
-        $EncounterRandomErrorParameters = @{
-            FunctionName = "ActGetRandomError"
-            RetryOptions = $retryPolicy
-        }
-        Invoke-DurableActivity @EncounterRandomErrorParameters
+    $EncounterRandomErrorParameters = @{
+        FunctionName = "ActGetRandomError"
+        RetryOptions = $retryPolicy
     }
-    catch
-    {
-        Write-Log "Failed to invoke activity 'ActGetRandomError' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
-        throw $PSItem
-    }
+    Invoke-DurableActivity @EncounterRandomErrorParameters
 }
 
+# Invoke activity function to process member of user group
 try
 {
     $processUserGroupMemberInput = @{

@@ -13,6 +13,7 @@ $retryPolicyParameters = @{
 }
 $retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
 
+# Invoke activity function to get user groups
 try
 {
     $userGroupsInput = @{
@@ -31,10 +32,11 @@ catch
     throw $PSItem
 }
 
-try
+# Invoke sub orchestrator function for each user group
+$userGroupTasks = [System.Collections.Generic.List[Object]]::new()
+foreach ($userGroupName in $userGroups)
 {
-    $userGroupTasks = [System.Collections.Generic.List[Object]]::new()
-    foreach ($userGroupName in $userGroups)
+    try
     {
         $userGroupInput = @{
             UserGroupMemberCount = $Context.Input.UserGroupMemberCount
@@ -51,7 +53,17 @@ try
         $userGroupTask = Invoke-DurableSubOrchestrator @userGroupParameters
         $userGroupTasks.Add($userGroupTask)
     }
+    catch
+    {
+        Write-Log "Failed to invoke sub orchestrator 'SubOrcUserGroup' for user group '$userGroupName' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+        continue
+        # throw $PSItem
+    }
+}
 
+# Wait for sub orchestrator functions for each user group
+try
+{
     Write-Log "Waiting for user group sub orchestrators" -OrchestrationContext $Context
     Wait-DurableTask -Task $userGroupTasks | Out-Null
 
@@ -61,6 +73,6 @@ try
 }
 catch
 {
-    Write-Log "Failed to invoke sub orchestrator 'SubOrcUserGroup' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+    Write-Log "Failed waiting for sub orchestrator 'SubOrcUserGroup' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
     throw $PSItem
 }

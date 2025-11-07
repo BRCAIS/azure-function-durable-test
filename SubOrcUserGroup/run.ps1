@@ -13,6 +13,7 @@ $retryPolicyParameters = @{
 }
 $retryPolicy = New-DurableRetryPolicy @retryPolicyParameters
 
+# Invoke activity function to get members of user group
 try
 {
     $userGroupMembersInput = @{
@@ -24,7 +25,7 @@ try
         Input        = $userGroupMembersInput
         RetryOptions = $retryPolicy
     }
-    [String[]] $userGroupMembers = Invoke-DurableActivity @userGroupMembersParameters
+    $userGroupMembers = Invoke-DurableActivity @userGroupMembersParameters
 }
 catch
 {
@@ -32,16 +33,17 @@ catch
     throw $PSItem
 }
 
-try
+# Invoke sub orchestrator function for each user group member
+$userGroupMemberTasks = [System.Collections.Generic.List[Object]]::new()
+foreach ($userGroupMemberName in $userGroupMembers)
 {
-    $userGroupMemberTasks = [System.Collections.Generic.List[Object]]::new()
-    foreach ($userGroupMemberName in $userGroupMembers)
+    try
     {
         $userGroupMemberInput = @{
-            UserGroupMemberName = $UserGroupMemberName
+            UserGroupMemberName = $userGroupMemberName
             UserGroupName       = $Context.Input.UserGroupName
         }
-        $instanceId = "sub-orc-user-group-member-$UserGroupMemberName"
+        $instanceId = "sub-orc-user-group-member-$userGroupMemberName"
         $userGroupMemberParameters = @{
             FunctionName = "SubOrcUserGroupMember"
             Input        = $userGroupMemberInput
@@ -52,7 +54,17 @@ try
         $userGroupMemberTask = Invoke-DurableSubOrchestrator @userGroupMemberParameters
         $userGroupMemberTasks.Add($userGroupMemberTask)
     }
+    catch
+    {
+        Write-Log "Failed to invoke sub orchestrator 'SubOrcUserGroupMember' for member '$userGroupMemberName' in user group '$($Context.Input.UserGroupName)' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+        continue
+        # throw $PSItem
+    }
+}
 
+# Wait for sub orchestrator functions for each user group member
+try
+{
     Write-Log "Waiting for member sub orchestrators for user group '$($Context.Input.UserGroupName)'" -OrchestrationContext $Context
     Wait-DurableTask -Task $userGroupMemberTasks | Out-Null
 
@@ -62,6 +74,6 @@ try
 }
 catch
 {
-    Write-Log "Failed to invoke sub orchestrator 'SubOrcUserGroupMember' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
+    Write-Log "Failed waiting for sub orchestrator 'SubOrcUserGroupMember' due to error '$($PSItem.Exception.Message)'" -OrchestrationContext $Context
     throw $PSItem
 }
