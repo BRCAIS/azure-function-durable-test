@@ -17,7 +17,7 @@ if (-not $name)
 
 if ($name)
 {
-    Start-Sleep -Seconds 35
+    # Start-Sleep -Seconds (Get-Random -Minimum 1 -Maximum 3)
     $body = $users.where({ $PSItem.Name -ieq $name })
 }
 
