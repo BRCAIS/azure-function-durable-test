@@ -6,7 +6,7 @@ name: Build and deploy dotnet core app to Azure Function App - DurableFnApp
 on:
   push:
     branches:
-      - main
+      - pause
   workflow_dispatch:
 
 env:
