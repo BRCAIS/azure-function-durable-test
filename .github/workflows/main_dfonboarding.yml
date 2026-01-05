@@ -4,9 +4,9 @@
 name: Build and deploy dotnet core app to Azure Function App - DFOnboarding
 
 on:
-  push:
-    branches:
-      - pause
+  # push:
+  #   branches:
+  #     - pause
   workflow_dispatch:
 
 env:
@@ -52,3 +52,4 @@ jobs:
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
 
           
+
